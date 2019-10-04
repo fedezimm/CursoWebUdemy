@@ -1,0 +1,12 @@
+<% include partials/header %>
+<link rel="stylesheet" href="app.css">
+
+<h1>The Posts page</h1>
+
+<%for(var i = 0; i < posts.length; i++){ %>
+	<li>"<%= posts[i].title%>", by: <strong><%=posts[i].author %></strong>
+	</li>
+<% } %>
+
+<% include partials/footer %>
+							
