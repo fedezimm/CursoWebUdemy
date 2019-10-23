@@ -1,12 +1,20 @@
-//-----------------ENVIRONMENT AND SETUP-------------------//
+//=========================================================
+//-----------------ENVIRONMENT AND SETUP-------------------
+//=========================================================
 const express 		= require("express"),
 	  app 			= express(),
 	  bodyParser 	= require("body-parser"),
 	  mongoose	 	= require("mongoose"),
+	  passport 		= require("passport"),
+	  LocalStrategy	= require("passport-local"),
 	  Campground 	= require("./models/campground"),
 	  Comment		= require("./models/comment"),
+	  User			= require("./models/user"),
 	  seedDB		= require("./seeds");
-	  
+
+var commentRoutes 		= require("./routes/comments"),
+	campgroundRoutes 	= require("./routes/campgrounds"),
+	indexRoutes			= require("./routes/index");
 
 
 mongoose.set('useUnifiedTopology', true);
@@ -14,105 +22,42 @@ mongoose.connect("mongodb://localhost:27017/yelp_camp",{useNewUrlParser:true});
 app.use(bodyParser.urlencoded({extended: true}));
 app.set("view engine","ejs");
 app.use(express.static(__dirname +"/public"));
-seedDB();
+// seed the database
+// seedDB();
 
-//------------ROUTES----------------------//
+// ======================================
+// 		PASSPORT CONFIGURATION
+// ======================================
 
-app.get("/",(req,res)=>{
-	res.render("landing");
+app.use(require("express-session")({
+	secret: "River 3 Boca 1",
+	resave: false,
+	saveUninitialized: false
+}));
+
+app.use(passport. initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+app.use((req,res,next)=>{
+	res.locals.currentUser = req.user;
+	next();
 });
 
-//INDEX ROUTE - Show all the campgrounds
-app.get("/campgrounds",(req,res)=>{
-	// Get all campgrounds from DB
-	Campground.find({},(err,allCampgrounds)=>{
-		if(err){
-			console.log(err);
-		}else{
-			res.render("campgrounds/index",{campgrounds: allCampgrounds});
-		};
-	});
-});
+//==================================================
+// REQUERING ROUTES
+//==================================================
+app.use(indexRoutes);
+app.use("/campgrounds/:id/comments",commentRoutes);
+app.use("/campgrounds", campgroundRoutes);
 
-//CREATE ROUTE - Add a campground to the DB
-app.post("/campgrounds",(req, res)=>{
-	// get data from form and add to campgrounds array
-	const name = req.body.name;
-	const image = req.body.image;
-	const desc = req.body.description;
-	var newCampground = {name: name, image: image, description: desc};
-	//Create a new campground and save to the database
-	Campground.create(newCampground,(err,newCreated)=>{
-		if(err){
-			console.log(err);
-		}else{
-			// redirect back to campgrounds page
-			console.log("New Campground succesfully created");
-			res.redirect("/campgrounds");
-		};
-	});
-});
 
-//NEW ROUTE - Show form to create the campground
-app.get("/campgrounds/new",(req, res)=>{
-	res.render("campgrounds/new");
-});
+//============================================
+//		SERVER SERVING ON PORT 3000
+//============================================
 
-//SHOW ROUTE => /campgrounds/:id <= - Shows info about one dog
-
-app.get("/campgrounds/:id",(req,res)=>{
-	//find the campground with provided ID
-	Campground.findById(req.params.id).populate("comments").exec((err,foundCampground)=>{
-		if(err){
-			console.log(err);
-		}else{
-			console.log(foundCampground);
-			//render show template with that campground
-			res.render("campgrounds/show", {campground: foundCampground});
-		};
-	});
-});
-
-//============================
-// 		COMMENTS ROUTES
-//============================
-// NEW ROUTE
-
-app.get("/campgrounds/:id/comments/new",(req,res)=>{
-	//find campground id
-	Campground.findById(req.params.id,(err,campground)=>{
-		if(err){
-			console.log(err);
-		}else{
-			res.render("comments/new",{campground: campground});
-		};
-	});
-});
-
-app.post("/campgrounds/:id/comments",(req,res)=>{
-	//lookup campground suing ID
-	Campground.findById(req.params.id,(err,campground)=>{
-		if(err){
-			console.log(err);
-			res.redirect("/campgrounds");
-		}else{
-			//create new comment
-			Comment.create(req.body.comment,(err,comment)=>{
-				if(err){
-					console.log(err);
-				}else{
-					//connect new comment to campground
-					campground.comments.push(comment);
-					campground.save();
-					//redirect to campground show page
-					res.redirect("/campgrounds/"+campground._id);
-				};
-			});
-		};
-	});
-});
-
-//SERVER SERVING ON PORT 3000
 app.listen(3000,function(){
 	console.log("Serving on port 3000 the YelpCamp App");
 });
